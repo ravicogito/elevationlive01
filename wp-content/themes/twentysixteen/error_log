@@ -1,0 +1,4 @@
+[22-Dec-2017 19:59:01 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentysixteen/404.php on line 10
+[15-Feb-2018 13:31:53 UTC] PHP Fatal error:  Call to undefined function language_attributes() in /home/expressmystuff/public_html/wp-content/themes/twentysixteen/header.php on line 13
+[11-Apr-2018 16:50:18 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentysixteen/404.php on line 10
+[11-Apr-2018 21:16:56 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentysixteen/404.php on line 10

@@ -1,0 +1,2 @@
+[22-Dec-2017 20:02:32 UTC] PHP Fatal error:  Call to undefined function _deprecated_file() in /home/expressmystuff/public_html/wp-includes/session.php on line 8
+[17-Apr-2018 02:14:05 UTC] PHP Fatal error:  Call to undefined function _deprecated_file() in /home/expressmystuff/public_html/wp-includes/locale.php on line 10

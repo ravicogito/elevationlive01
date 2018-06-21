@@ -1,0 +1,43 @@
+#quote-widget .col-md-3, #quote-widget .col-md-6, #quote-widget .col-md-5, #quote-widget .col-md-7 {
+  display: block !important;
+  flex: unset !important;
+  float: none !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.customs-info{ padding:30px; background-color:#fff; display: none;}
+
+#show-customs-other{ display: none;}
+
+.quote-dimensions-box {
+  background-color: #fb3c00;
+  clear: both;
+  color: #fff;
+  display: none;
+  padding: 20px 30px;
+  width: 97%;
+	margin:0 auto;
+	margin-bottom: 30px;
+}
+
+.quote-dimensions-box .form-control{ width:95%;}
+
+.shopping-experience-box{ padding:30px; color:#fff; background-color:#fb3c00; width:100%;}
+
+.shopping-left, .shopping-right{ width:48%; float:left;}
+
+.shopping-right{ float:right;}
+
+
+.shopping-buy-now{ padding:10px 20px; background-color:#fff; font-size: 22px; float:right; margin-top: 20px;}
+
+#shopping-register{ width:48%; float:left; position: relative;}
+
+#shopping-login{ width:48%; float:right; position: relative;}
+
+#shopping-register .cover, #shopping-login .cover{ position: absolute; width:100%; height:100%; background-color:rgba(255,255,255,0.8); text-align: center; padding-top: 40%; left:0px; top:0px; display: none;}
+
+#shopping-login .cover{ padding-top: 20% !important;}
+
+#shopping-buy{ display: none;}

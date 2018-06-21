@@ -1,0 +1,42 @@
+/*
+Theme Name: EMS
+Theme URI: https://www.wptweaks.co.uk
+Author: Neil Smart
+Author URI: https://www.wptweaks.co.uk
+Description: Custom theme
+Version: 1
+Text Domain: understrap
+Tags: one-column, custom-menu, featured-images, theme-options, translation-ready
+
+This theme, like WordPress, is licensed under the GPL.
+UnderStrap is based on Underscores http://underscores.me/, (C) 2012-2016 Automattic, Inc.
+
+Resource Licenses:
+Font Awesome: http://fontawesome.io/license (Font: SIL OFL 1.1, CSS: MIT License)
+Bootstrap: http://getbootstrap.com | https://github.com/twbs/bootstrap/blob/master/LICENSE (Code licensed under MIT, documentation under CC BY 3.0.)
+Owl Carousel 2: http://www.owlcarousel.owlgraphic.com/ | https://github.com/smashingboxes/OwlCarousel2/blob/develop/LICENSE (Code licensed under MIT)
+and of course
+jQuery: https://jquery.org | (Code licensed under MIT)
+WP Bootstrap Navwalker by Edward McIntyre: https://github.com/twittem/wp-bootstrap-navwalker | GNU GPL
+*/
+
+/*
+This file is just used to identify the theme in WordPress.
+The compiled CSS output can be found in /css/theme.css
+The SASS sources for it can be found in /sass/
+The dependencies can be found in /src/ after running "gulp copy-assets" terminal command
+
+...and now go out and play!
+*/
+body {
+    font-family: 'Roboto', sans-serif;
+}
+#primaryNav #navbarNavDropdown .nav-link {
+    font-family: 'Roboto', sans-serif !important;
+}
+.home-header {
+    font-family: 'Roboto', sans-serif !important;
+}
+#wk_content li.view_all a {
+    background-color: #fb3c00 !important;
+}

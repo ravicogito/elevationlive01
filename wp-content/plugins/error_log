@@ -1,0 +1,6 @@
+[05-Nov-2017 14:07:18 UTC] PHP Fatal error:  Call to undefined function add_action() in /home/expressmystuff/public_html/wp-content/plugins/hello.php on line 60
+[27-Nov-2017 05:39:50 UTC] PHP Fatal error:  Call to undefined function add_action() in /home/expressmystuff/public_html/wp-content/plugins/hello.php on line 60
+[22-Dec-2017 19:58:17 UTC] PHP Fatal error:  Call to undefined function add_action() in /home/expressmystuff/public_html/wp-content/plugins/hello.php on line 60
+[12-Jan-2018 12:35:53 UTC] PHP Fatal error:  Call to undefined function add_action() in /home/expressmystuff/public_html/wp-content/plugins/hello.php on line 60
+[12-Jan-2018 12:36:01 UTC] PHP Fatal error:  Call to undefined function add_action() in /home/expressmystuff/public_html/wp-content/plugins/hello.php on line 60
+[07-Feb-2018 18:00:36 UTC] PHP Fatal error:  Call to undefined function add_action() in /home/expressmystuff/public_html/wp-content/plugins/hello.php on line 60

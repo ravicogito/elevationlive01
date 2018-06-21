@@ -1,0 +1,8 @@
+[22-Dec-2017 19:58:52 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/404.php on line 10
+[10-Apr-2018 17:54:00 UTC] PHP Fatal error:  Call to undefined function the_ID() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/content-link.php on line 13
+[11-Apr-2018 09:40:29 UTC] PHP Fatal error:  Call to undefined function the_ID() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/content.php on line 13
+[11-Apr-2018 10:55:37 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/index.php on line 17
+[11-Apr-2018 19:48:21 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/404.php on line 10
+[12-Apr-2018 04:50:05 UTC] PHP Fatal error:  Call to undefined function _e() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/author-bio.php on line 12
+[12-Apr-2018 06:09:43 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/archive.php on line 19
+[19-Apr-2018 04:33:10 UTC] PHP Fatal error:  Call to undefined function get_header() in /home/expressmystuff/public_html/wp-content/themes/twentyfifteen/404.php on line 10

@@ -1,0 +1,1649 @@
+$ = jQuery;
+
+var collection_address = {};
+var delivery_address = {};
+var label_address = {};
+var delivery_service = 'standard';
+var post_labels = 'off';
+var cancellation_cover = 'off';
+var current_insurance_price = 0;
+var ems_user_id = 0;
+var nouser_first_name = '';
+var nouser_last_name = '';
+var nouser_email = '';
+var journey_type = 'single';
+var service_type = 'standard';
+
+var f_c = 'GB';
+var t_c = 'GB';
+var zone = 'worldwide';
+
+function calculate_shipping_zone() {
+
+
+    var eu_countries = ["AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK"];
+
+    var from_zone = '';
+    var to_zone = '';
+    f_c = $('#sent-country-from').val();
+    t_c = $('#sent-country-to').val();
+    if ($.inArray(f_c, eu_countries) > -1) {
+
+        from_zone = 'europe';
+    } else {
+
+        from_zone = 'worldwide';
+    }
+
+    if ($.inArray(t_c, eu_countries) > -1) {
+
+        to_zone = 'europe';
+    } else {
+
+        to_zone = 'worldwide';
+    }
+
+    if (from_zone === 'europe' && to_zone === 'europe') {
+        zone = 'europe';
+    } else {
+        zone = 'worldwide';
+    }
+
+    if (f_c !== 'GB') {
+        zone = 'worldwide';
+    }
+
+    if (zone === 'worldwide') {
+        $('#std-cb').hide();
+        $('#service-express').attr('checked', 'checked');
+        $('#service-standard').prop('checked', false);
+        $('#service-express').prop('checked', true);
+        service_type = 'express';
+        $('#customs-yes-no').val('yes');
+        $('#customs-yes-no').attr('disabled', 'disabled');
+        $('#customs-info').show();
+
+    } else {
+        $('#service-standard').prop('checked', true);
+        $('#std-cb').show();
+        service_type = 'standard';
+        $('#service-express').prop('checked', false);
+    }
+
+
+}
+
+
+function remove_row_parent(elem) {
+
+    var id = $(elem).parent().parent().attr('id');
+
+    var theprice = parseFloat($(elem).parent().parent().attr('data-price'));
+
+    var current_total = parseFloat(grand_total);
+
+    var new_total = current_total - theprice;
+
+    grand_total = new_total;
+
+    $('#ajax-price').html(currency_symbol + grand_total.toFixed(2));
+
+
+    $('#list-' + id).remove();
+
+    $(elem).parent().parent().remove();
+
+}
+
+function add_to_quote_from_modal(elem) {
+
+
+    var item_price = $(elem).attr('data-price');
+    var item_rate = $(elem).attr('data-rate');
+    var item_object_id = $(elem).attr('data-object-id');
+    var item_description = $(elem).attr('data-description');
+    var item_dimensions = $(elem).attr('data-dimensions');
+    var item_weight = $(elem).attr('data-weight');
+    var item_original_price = $(elem).attr('data-orig');
+    var item_currency = $(elem).attr('data-currency');
+    var item_provider = $(elem).attr('data-provider');
+
+
+    var html = '<tr data-price="' + item_price + '" class="basketItem" id="' + item_object_id + '" data-rate="' + item_rate + '" data-oprice="' + item_original_price + '">';
+
+    html += "<td class='" + item_description + "'>" + item_provider + " " + item_description + "</td>";
+
+    html += '<td class="hidden-xs-down xdimensions">' + item_dimensions + '</td>';
+    html += '<td class="hidden-xs-down xweight">' + item_weight + '</td>';
+    html += '<th class="text-center" scope="row"><a href="Javascript:void(0);" onClick="remove_row_parent(this)"; class="smallredcross">';
+    html += '<i class="fa fa-times" aria-hidden="true"></i></a></th></tr>';
+
+
+    $('#orderStep3 tbody').append(html);
+
+    $('.fake-price').remove();
+
+    $('#ajax-items-list').append("<div id='list-" + item_object_id + "'>1- " + item_provider + " " + item_description + " - " + currency_symbol + " " + item_price + "</div>");
+
+    $('#itemWidth, #itemHeight, #itemLength, #itemWeight, #itemDesc').val('');
+
+    total = parseFloat(grand_total);
+    var new_total = total + parseFloat(item_price);
+    grand_total = new_total;
+
+    $('#ajax-price').html(currency_symbol + grand_total.toFixed(2));
+
+    $('#rates-modal').modal('hide');
+
+
+}
+
+
+function change_address(n) {
+
+    $('.col-' + n + '-to-hide').slideDown('fast');
+    $('.col-' + n + '-to-show').slideUp('fast');
+    $('#step-1-controls').slideUp('fast');
+
+}
+
+$(document).ready(function() {
+
+    $('#OneWayJourney').click(function() {
+
+        journey_type = 'single';
+    });
+
+    $('#ReturnJourney').click(function() {
+
+
+        journey_type = 'return';
+    });
+
+    $('#quoted-price').val('');
+
+
+    $('.proceed-to-order').click(function(e) {
+
+        e.preventDefault();
+
+        var price = $(this).attr('data-price');
+
+        $('#quoted-price').val(price);
+
+        $('#quick-quote').submit();
+
+    });
+
+
+    $('body').dblclick(function() {
+
+        $.post('/ems/wp-admin/admin-ajax.php', {
+            'action': 'retrieve_batch',
+            'ems_cmd': 'retrieve_batch',
+            'batch_id': '670d8bfaa12840baa847ca6ec8bf1185',
+        }).done(function(data) {
+
+
+        });
+
+
+    });
+
+
+    // 1. INITIAL ORDER CALCULATION AJAX ----------------------------------->
+
+
+    if ($('body').hasClass('page-template-orderpage')) {
+
+
+        /*$.post(ajax_url, {'action': 'ems_calculate_quote',
+        				  'from_country': from_country,
+        				  'from_postcode': from_postcode,
+        				  'to_postcode': to_postcode,
+        				  'to_country': to_country,
+        				  'from_city': from_city,
+        				  'to_city': to_city}).done(function(data){
+        	
+        	$('#ajax-price').html("&pound;"+data);
+        	
+        	$('#ajax-items-list').html("<span class='fake-price'>1 - &pound;"+data+" (lowest price)<span>");
+        	
+        	$('.waiting-cover').fadeOut('slow');
+        });
+        */
+
+
+        $('#Metric').click(function() {
+            units_type = 'metric';
+            $('.lwunit').html('(cm)');
+            $('.wunit').html('(kg)');
+        })
+        $('#Imperial').click(function() {
+            units_type = 'imperial';
+            $('.lwunit').html('(in)');
+            $('.wunit').html('(lb)');
+        });
+
+
+        $('#add-a-bag').click(function() {
+
+            if ($('#customs-yes-no').val() === 'yes') {
+
+
+                if ($('#customs-value').val() === '') {
+
+                    alert('Please enter a value for your parcel for customs before adding your bag!');
+                    return;
+
+                }
+
+            }
+
+            var units = units_type;
+
+            var item_width = $('#itemWidth').val();
+            var item_height = $('#itemHeight').val();
+            var item_length = $('#itemLength').val();
+            var item_weight = $('#itemWeight').val();
+            var item_type = $('#itemType').val();
+            var item_description = $('#itemDesc').val();
+
+            var state_from = $('#state-from').val();
+
+            var state_to = $('#state-to').val();
+
+            var has_customs = $('#customs-yes-no').val();
+            var customs_value = $('#customs-value').val();
+            var customs_contents = $('#customs-contents').val();
+            var customs_contents_other = $('#customs-contents-other').val();
+
+
+            if (item_width != '' && item_height != '' && item_length != '' && item_weight != '') {
+                $('.waiting-cover').fadeIn('slow');
+            }
+
+
+
+            /*
+			
+				collection_address.addressType = $('#addressType').val();
+		delivery_address.custName = $('#custName').val();
+		delivery_address.custPhone_CountryCode = $('#custPhone_CountryCode').attr('data-code');
+		delivery_address.custPhone = $('#custPhone').val();
+		delivery_address.custAddress1 = $('#custAddress1').val();
+		delivery_address.custAddress2 = $('#custAddress2').val();
+		delivery_address.custCity = $('#custCity').val();
+		delivery_address.cusPostcode = $('#custPostcode').val();
+		delivery_address.country = $('#custOrigin_CountryIso').val();
+		
+		*/
+
+            $.post(ajax_url, {
+                'action': 'ems_create_shipment',
+                'from_country': collection_address.country,
+                'from_postcode': collection_address.cusPostcode,
+                'from_city': collection_address.custCity,
+                'from_address_1': collection_address.custAddress1,
+                'from_address_2': collection_address.custAddress2,
+                'from_name': collection_address.custName,
+                'from_telephone': collection_address.custPhone_CountryCode + collection_address.custPhone,
+                'to_postcode': delivery_address.cusPostcode,
+                'to_country': delivery_address.country,
+                'to_address_1': delivery_address.custAddress1,
+                'to_address_2': delivery_address.custAddress2,
+                'to_name': delivery_address.custName,
+                'to_telephone': delivery_address.custPhone_CountryCode + delivery_address.custPhone,
+                'to_city': delivery_address.custCity,
+                'state_from': state_from,
+                'state_to': state_to,
+                'item_width': item_width,
+                'item_height': item_height,
+                'item_length': item_length,
+                'item_weight': item_weight,
+                'item_type': item_type,
+                'item_description': item_description,
+                'units': units,
+                'journey_type': journey_type,
+                'shipping_date': $('#shipping-date').val(),
+                'return_shipping_date': $('#return-date').val(),
+                'delivery_service': delivery_service,
+                'currency': base_currency,
+                'service_type': service_type,
+                'has_customs': has_customs,
+                'customs_contents': customs_contents,
+                'customs_contents_other': customs_contents_other,
+                'customs_value': customs_value
+            }).done(function(data) {
+                $('#customs-value, #customs-contents-other').val('');
+                $('#customs-contents').val('GIFT');
+                $('#show-customs-other').hide();
+                //$('.customs-info').slideUp('fast');
+
+                $('.waiting-cover').fadeOut('slow');
+
+                if (data === 'norates') {
+
+                    $('#norates-modal').modal();
+
+                } else {
+
+
+
+                    var modal_str = '<table class="table table-striped table-hover">';
+
+                    var obj = jQuery.parseJSON(data);
+
+                    if (typeof obj.message !== 'undefined') {
+                        $('.waiting-cover').fadeOut('fast');
+                        $('#message-modal .modal-body').html(obj.message);
+                        $('#message-modal').modal();
+                        return false;
+                    }
+                    $.each(obj, function(index, therate) {
+
+
+
+                        var object_id = therate.object_id;
+                        var amount = therate.amount;
+                        var provider = therate.provider;
+                        var rate = therate.rate;
+                        var op = therate.original_price;
+                        var thecurrency = therate.currency;
+                        var provider_image = therate.provider_image;
+                        var arrives_by = therate.arrives_by;
+                        var servicelevel_name = therate.servicelevel_name;
+                        var days = therate.days;
+
+
+
+                        if (units === 'metric') {
+
+                            var lwunits = 'cm';
+                            var wunits = 'kg';
+                        } else {
+
+                            var lwunits = 'in';
+                            var wunits = 'lb';
+                        }
+
+
+                        modal_str += "<tr><td><img src='" + provider_image + "' /><br />" + provider + "</td>";
+                        modal_str += "<td><strong>Arrives by:</strong> " + arrives_by + " (" + days + " days)<br />" + servicelevel_name + "</td>";
+                        modal_str += "<td>" + amount + " " + thecurrency + "</td>";
+                        modal_str += "<td><a class='btn btn-primary btn-lg' href='Javascript:void(0);' data-price='" + amount + "' data-rate='" + rate + "' data-object-id='" + object_id + "'";
+                        modal_str += "data-description='" + item_description + "' data-dimensions='" + item_width + lwunits + " x " + item_height + lwunits + " x " + item_length + lwunits + "'";
+                        modal_str += "data-weight='" + item_weight + wunits + "' data-orig='" + op + "' data-provider='" + provider + "'";
+                        modal_str += "data-currency='" + thecurrency + "' onClick='add_to_quote_from_modal(this);'>+ Add to Quote</a></td></tr>";
+
+
+
+
+                    });
+
+                    modal_str += "</table>";
+
+                    $('#rates-modal .modal-body').html(modal_str);
+                    $('#rates-modal').modal();
+
+                }
+
+
+
+            });
+
+        });
+
+
+
+    }
+
+
+
+
+    $('#set-collect-address').click(function() {
+
+
+
+        var collection_errors = '';
+        $('.req1').each(function() {
+
+            if ($(this).val() === '') {
+
+                $(this).addClass('errors');
+                collection_errors += '.';
+            }
+
+        });
+
+        if (collection_errors === '') {
+
+            collection_address.addressType = $('#addressType').val();
+            collection_address.custName = $('#custName').val();
+            collection_address.custPhone_CountryCode = $('#custPhone_CountryCode').find(':selected').attr('data-code');
+            collection_address.custPhone = $('#custPhone').val();
+            collection_address.custAddress1 = $('#custAddress1').val();
+            collection_address.custAddress2 = $('#custAddress2').val();
+            collection_address.custCity = $('#custCity').val();
+            collection_address.cusPostcode = $('#custPostcode').val();
+            collection_address.country = $('#custOrigin_CountryIso').val();
+            collection_address.buzzer = $('#custBuzzer').val();
+
+            var str = "<h3>Collection Address</h3>" + collection_address.custName + "<br />" + collection_address.custAddress1 + "<br />";
+            if (collection_address.custAddress2 != '') {
+
+                str += collection_address.custAddress2 + "<br />";
+
+            }
+
+            str += collection_address.custCity + " " + collection_address.country;
+
+            $('.col-1-to-show').html(str);
+
+            $('.col-1-to-hide').slideUp('fast');
+
+            $('.col-1-to-show').slideDown('slow');
+
+            if ($('.col-1-to-show').html() != '' && $('.col-2-to-show').html() != '') {
+
+                $('#step-1-controls').slideDown('slow');
+
+            }
+
+            $('#collect-errors').hide();
+
+        } else {
+
+            $('#collect-errors').fadeIn('slow');
+        }
+
+
+
+    });
+
+
+
+
+    $('#set-deliver-address').click(function() {
+
+
+
+        var delivery_errors = '';
+        $('.req2').each(function() {
+
+            if ($(this).val() === '') {
+
+                $(this).addClass('errors');
+                delivery_errors += '.';
+            }
+
+        });
+
+        if (delivery_errors === '') {
+
+            delivery_address.addressType = $('#addressType2').val();
+            delivery_address.custName = $('#custName2').val();
+            delivery_address.custPhone_CountryCode = $('#custPhone_CountryCode2').find(':selected').attr('data-code');
+            delivery_address.custPhone = $('#custPhone2').val();
+            delivery_address.custAddress1 = $('#custAddress1_2').val();
+            delivery_address.custAddress2 = $('#custAddress2_2').val();
+            delivery_address.custCity = $('#custCity2').val();
+            delivery_address.cusPostcode = $('#custPostcode2').val();
+            delivery_address.country = $('#custOrigin_CountryIso2').val();
+            delivery_errors.buzzer = $('#custBuzzer2').val();
+
+            var str = "<h3>Delivery Address</h3>" + delivery_address.custName + "<br />" + delivery_address.custAddress1 + "<br />";
+            if (delivery_address.custAddress2 != '') {
+
+                str += delivery_address.custAddress2 + "<br />";
+
+            }
+
+            str += delivery_address.custCity + " " + delivery_address.country;
+
+            $('.col-2-to-show').html(str);
+
+            $('.col-2-to-hide').slideUp('fast');
+
+            $('.col-2-to-show').slideDown('slow');
+
+            if ($('.col-1-to-show').html() != '' && $('.col-2-to-show').html() != '') {
+
+                $('#step-1-controls').slideDown('slow');
+
+            }
+            $('#deliver-errors').hide();
+        } else {
+
+            $('#deliver-errors').fadeIn('slow');
+
+        }
+
+
+
+    });
+
+    $('#go-to-step-2').click(function() {
+        calculate_shipping_zone();
+        $('#orderStep1').fadeOut('fast');
+        $('#orderStep2').fadeIn('fast');
+
+        $('#cc').html($('#custOrigin_CountryIso').val() + ' <i class="fa fa-arrow-right orangetext"></i> ');
+        $('#dc').html($('#custOrigin_CountryIso2').val());
+        $('#tofromcc').fadeIn('slow');
+
+        $('.entry-header .nav-link').removeClass('active');
+        $('#pill-step-2').addClass('active');
+        $('#pill-step-2').removeClass('disabled');
+
+        if (journey_type === 'return') {
+
+            $('#return-date-select').show();
+        }
+
+    });
+
+    $('.entry-header .nav-link').click(function() {
+
+        if (!$(this).hasClass('disabled')) {
+
+
+            $('#orderStep1, #orderStep2, #orderStep3, #orderStep4').fadeOut('fast');
+            var thestep = $(this).attr('data-step');
+
+            $('#orderStep' + thestep).fadeIn('slow');
+
+            $('.nav-link').removeClass('active');
+            $('#pill-step-' + thestep).addClass('active');
+        }
+
+    });
+
+    $('#go-to-step-3').click(function() {
+
+        if ($('#shipping-date').val() != '') {
+
+            $('#orderStep2').fadeOut('fast');
+            $('#orderStep3').fadeIn('fast');
+
+            $('.entry-header .nav-link').removeClass('active');
+            $('#pill-step-3').addClass('active');
+            $('#pill-step-3').removeClass('disabled');
+
+            if ($('#Standard').is(':checked')) {
+
+                delivery_service = 'standard';
+
+            } else {
+
+                delivery_service = 'express';
+            }
+
+        } else {
+
+            alert('Please select a collection date');
+        }
+
+    });
+
+
+    $('#go-to-step-4').click(function() {
+
+        $('#ca-copy').html($('#custAddress1').val());
+
+        if ($('#orderStep3 tbody').html() != '') {
+
+            $('#orderStep3').fadeOut('fast');
+            $('#orderStep4').fadeIn('fast');
+
+
+            $('.entry-header .nav-link').removeClass('active');
+            $('#pill-step-4').addClass('active');
+            $('#pill-step-4').removeClass('disabled');
+
+        } else {
+
+            alert('Please add your parcels before proceeding.')
+
+        }
+
+    });
+
+    $('#shipping-date').val('');
+
+
+
+    function save_shopping_cart() {
+
+
+        label_address.addressType = $('#label-address-type').val();
+        label_address.custName = $('#label-customer-name').val();
+        label_address.custPhone_CountryCode = $('#label-phone-code').find(':selected').attr('data-code');
+        label_address.custPhone = $('#label-phone').val();
+        label_address.custAddress1 = $('#label-address-1').val();
+        label_address.custAddress2 = $('#label-address-2').val();
+        label_address.custCity = $('#label-city').val();
+        label_address.cusPostcode = $('#label-postcode').val();
+        label_address.country = $('#label-country').val();
+        label_address.buzzer = $('#label-buzzer').val();
+
+
+        $('.waiting-cover').fadeIn('fast');
+
+        var ems_session = $('#ems-session').val();
+        // collection_address 
+        // delivery_address
+        var shipping_date = $('#shipping-date').val();
+        // delivery_service
+        var parcels_array = [];
+
+        $('#orderStep3 tbody tr').each(function() {
+
+            var parcel = {};
+            parcel.shipping_object = $(this).attr('id');
+            parcel.rate_object = $(this).attr('data-rate');
+            parcel.description = $('.xdesc', this).html();
+            parcel.dimensions = $('.xdimensions', this).html();
+            parcel.weight = $('.xweight', this).html();
+            parcel.price = $(this).attr('data-price');
+            parcel.original_price = $(this).attr('data-oprice');
+            parcels_array.push(parcel);
+
+        });
+
+        var parcels = JSON.stringify(parcels_array);
+
+        var send_free_labels = $('#labelHolders').val();
+
+        var post_free_labels = $('#postMyLabels').val();
+
+        var cancellation_cover = $('#ccCover').val();
+
+        var level_of_cover = $('#coverLevel').val();
+
+        var why_us = $('#whyUs').val();
+
+        var total = grand_total;
+
+
+
+        $.post(ajax_url, {
+            'ems_cmd': 'save_cart',
+            'ems_session': ems_session,
+            'collection_address': collection_address,
+            'delivery_address': delivery_address,
+            'shipping_date': shipping_date,
+            'delivery_service': delivery_service,
+            'parcels': parcels,
+            'currency': base_currency,
+            'send_free_labels': send_free_labels,
+            'post_free_labels': post_free_labels,
+            'cancellation_cover': cancellation_cover,
+            'level_of_cover': level_of_cover,
+            'why_us': why_us,
+            'total': total,
+            'label_address': label_address,
+            'ems_user_id': ems_user_id,
+            'nouser_first_name': nouser_first_name,
+            'nouser_last_name': nouser_last_name,
+            'nouser_email': nouser_email
+        }).done(function(data) {
+
+            if (data === 'success') {
+
+                window.location = $('#ems-base-url').val() + '/pay';
+
+            } else {
+
+                $('.waiting-cover').fadeOut('fast');
+            }
+
+
+        });
+
+
+
+
+    }
+
+    if (base_currency === 'GBP') { 
+	    var labels_price =  $("#labels_price").val(); 
+        var post_labels_price = parseFloat(labels_price);
+	
+		
+    } else { 
+	    var labels_price =  $("#labels_price").val(); 
+        var post_labels_price = parseFloat($('#exchange-rate').val()) * parseFloat(labels_price);
+
+
+    }
+	
+    $('#post-labels-price-x').html(currency_symbol + post_labels_price.toFixed(2));
+
+    $('#postMyLabels').change(function() {
+		
+		var labels_price =  $("#labels_price").val(); 
+        var post_labels_prices = parseFloat(labels_price);
+		// alert(post_labels_prices);
+        if (base_currency === 'GBP') { 
+            var post_labels_price = post_labels_prices;
+        } else { 
+            var post_labels_price = parseFloat($('#exchange-rate').val()) * post_labels_prices;
+        }
+		// alert(post_labels_price);
+
+        if ($(this).val() === '1') {
+
+            $('#list-post-labels').show();
+
+
+
+            if (post_labels === 'off') {
+
+                post_labels = 'on';
+
+                var temp_total = grand_total;
+
+                var new_tot = parseFloat(grand_total) + post_labels_price;
+
+                grand_total = new_tot;
+
+                $('#ajax-price').html(currency_symbol + grand_total.toFixed(2));
+
+                $('#sidebar-post-labels-price').html(currency_symbol + post_labels_price.toFixed(2));
+
+            }
+
+        } else {
+
+            if (post_labels === 'on') {
+
+                post_labels = 'off';
+
+                var temp_total = grand_total;
+
+                var new_tot = parseFloat(grand_total) - post_labels_price;
+
+
+                grand_total = new_tot;
+
+                $('#ajax-price').html(currency_symbol + grand_total.toFixed(2));
+
+                $('#sidebar-post-labels-price').html(currency_symbol + post_labels_price.toFixed(2));
+            }
+
+            $('#list-post-labels').hide();
+        }
+
+    });
+
+
+
+    if (base_currency != 'GBP') {
+        var cancellation_cover_price = parseFloat($('#exchange-rate').val()) * 4;
+
+    } else {
+
+        var cancellation_cover_price = 4.00;
+    }
+
+    $('#cancellation-cover-price').html(currency_symbol + cancellation_cover_price);
+
+    $('#ccCover').change(function() {
+
+
+
+        if ($(this).val() === '1') {
+
+            $('#list-cancellation-cover').show();
+
+            if (cancellation_cover === 'off') {
+
+                cancellation_cover = 'on';
+
+                var temp_total = grand_total;
+
+                var new_tot = parseFloat(grand_total) + cancellation_cover_price;
+
+                grand_total = new_tot;
+
+                $('#ajax-price').html(currency_symbol + grand_total.toFixed(2));
+
+                $('#sidebar-cancellation-cover-price').html(currency_symbol + cancellation_cover_price.toFixed(2));
+
+
+
+            }
+
+        } else {
+
+            if (cancellation_cover === 'on') {
+
+                cancellation_cover = 'off';
+
+                var temp_total = grand_total;
+
+                var new_tot = parseFloat(grand_total) - cancellation_cover_price;
+
+                grand_total = new_tot;
+
+                $('#ajax-price').html(currency_symbol + grand_total.toFixed(2));
+
+                $('#sidebar-cancellation-cover-price').html(currency_symbol + cancellation_cover_price.toFixed(2));
+
+
+
+            }
+
+            $('#list-cancellation-cover').hide();
+        }
+
+    });
+
+    $('#coverLevel').change(function() {
+
+        var t = $(this).val();
+
+        switch (t) {
+
+            case '1':
+                var ins_price = 0;
+                var ins_price_text = '60';
+                break;
+
+            case '2':
+                if (base_currency === 'GBP') {
+                    var ins_price = 5;
+                } else {
+                    var ins_price = parseFloat($('#exchange-rate').val()) * 5;
+                }
+                var ins_price_text = '125';
+                break;
+
+
+
+            case '3':
+                if (base_currency === 'GBP') {
+                    var ins_price = 10;
+                } else {
+                    var ins_price = parseFloat($('#exchange-rate').val()) * 10;
+                }
+                var ins_price_text = '300';
+                break;
+
+            case '4':
+                if (base_currency === 'GBP') {
+                    var ins_price = 20;
+                } else {
+                    var ins_price = parseFloat($('#exchange-rate').val()) * 20;
+                }
+                var ins_price_text = '600';
+                break;
+
+
+
+
+        }
+        $('#selected-insurance-price').html(currency_symbol + ins_price.toFixed(2));
+        $('#selected-insurance-amount').html(ins_price_text);
+
+        var o = parseFloat(current_insurance_price);
+        var p = parseFloat(grand_total);
+
+        grand_total = (p - o);
+
+        var new_gt = grand_total + ins_price;
+
+        grand_total = new_gt;
+
+        current_insurance_price = ins_price;
+        $('#ajax-price').html(currency_symbol + grand_total.toFixed(2));
+
+        $('#selected-insurance-price').html(currency_symbol + ins_price.toFixed(2));
+
+    });
+
+
+    $('#labelHolders, #postMyLabels, #ccCover').val('2');
+
+
+    $('#login-register-option').click(function() {
+
+
+        $('#insurance-options').slideUp('fast');
+        $('#accountSetup').slideDown('fast');
+    });
+
+
+    $('#do-register').click(function() {
+
+
+        if ($('#user-password').val() != $('#user-password-confirm').val()) {
+
+            alert('The passwords you entered do not match');
+        } else {
+
+
+            $.post(ajax_url, {
+                'ems_cmd': 'ems_register',
+                'first_name': $('#user-first-name').val(),
+                'last_name': $('#user-last-name').val(),
+                'email_address': $('#user-email').val(),
+                'password': $('#user-password').val()
+            }).done(function(data) {
+
+                var res = jQuery.parseJSON(data);
+
+                if (res.status === 'error') {
+
+                    $('#register-msg').html(res.reason).fadeIn('slow');
+
+                } else {
+
+                    ems_user_id = res.user_id;
+
+
+                    save_shopping_cart();
+                }
+
+
+            });
+
+        }
+
+    });
+
+
+    $('#do-register-page').click(function() {
+
+
+        if ($('#user-password').val() != $('#user-password-confirm').val()) {
+
+            alert('The passwords you entered do not match');
+        } else {
+
+
+            $.post(ajax_url, {
+                'ems_cmd': 'ems_register',
+                'first_name': $('#user-first-name').val(),
+                'last_name': $('#user-last-name').val(),
+                'email_address': $('#user-email').val(),
+                'password': $('#user-password').val()
+            }).done(function(data) {
+
+                var res = jQuery.parseJSON(data);
+
+                if (res.status === 'error') {
+
+                    $('#register-msg').html(res.reason).fadeIn('slow');
+
+                } else {
+
+                    $('#register-msg').hide();
+                    $('#register-success').fadeIn('slow');
+
+                }
+
+
+            });
+
+        }
+
+    });
+
+
+    $('#do-login').click(function() {
+
+
+        var email = $('#login-email').val();
+        var password = $('#login-password').val();
+
+        $.post(ajax_url, {
+            'ems_cmd': 'ems_login',
+            'email_address': email,
+            'password': password
+        }).done(function(data) {
+
+            var res = jQuery.parseJSON(data);
+
+            if (res.status === 'error') {
+
+                $('#login-msg').html(res.reason).fadeIn('slow');
+
+            } else {
+
+                ems_user_id = res.user_id;
+
+
+                save_shopping_cart();
+            }
+
+
+        });
+
+    });
+
+
+    $('#do-login-page').click(function() {
+
+
+        var email = $('#login-email').val();
+        var password = $('#login-password').val();
+
+        $.post(ajax_url, {
+            'ems_cmd': 'ems_login',
+            'email_address': email,
+            'password': password
+        }).done(function(data) {
+
+            var res = jQuery.parseJSON(data);
+
+            if (res.status === 'error') {
+
+                $('#login-msg').html(res.reason).fadeIn('slow');
+
+            } else {
+
+                ems_user_id = res.user_id;
+
+                $('#login-form').submit();
+
+            }
+
+
+        });
+
+    });
+
+
+    $('#accountNo').click(function() {
+
+
+        $('#accountYesForm').slideUp('fast');
+
+        $('#no-account').slideDown('fast');
+    });
+
+    $("#accountYes").prop("checked", true);
+    $("#accountNo").prop("checked", false);
+    $('#accountAlready').prop('checked', false);
+
+    $('#accountAlready, #accountYes').click(function() {
+        $('#no-account').slideUp('fast');
+
+    });
+
+    $('#accountNo').click(function() {
+
+        $('#accountAlreadyForm').slideUp('fast');
+
+    });
+
+    $('#fill-user').click(function() {
+
+        var nufn = $('#nouser-first-name').val();
+        var nuln = $('#nouser-last-name').val();
+        var nue = $('#nouser-email').val();
+
+        if (nue == '' || nufn === '' || nuln === '') {
+
+            var strtortn = 'Please provide all fields';
+            $('#nouser-msg').html(strtortn).fadeIn('slow');
+
+        } else {
+
+            nouser_first_name = nufn;
+            nouser_last_name = nuln;
+            nouser_email = nue;
+
+            save_shopping_cart();
+
+        }
+
+    });
+
+    $('#user-account-form').submit(function() {
+
+
+        var errors = '';
+
+        if ($('#user-password').val() != '') {
+
+            if ($('#user-password').val() != $('#user-password-confirm').val()) {
+
+                alert('Your passwords do not match');
+                return false;
+            } else {
+
+                return true;
+            }
+
+        } else {
+
+            return true;
+
+        }
+
+    });
+
+
+    $('.bnbtn').click(function(e) {
+
+        e.preventDefault();
+
+        var fpc = $('#Collection_Postcode').val();
+        var tpc = $('#Destination_Postcode').val();
+
+        var str = '';
+
+        if (fpc != '') {
+
+            str += '&fpc=' + fpc;
+        }
+
+        if (tpc != '') {
+
+            str += '&tpc=' + tpc;
+
+        }
+
+        var hre = $(this).attr('href');
+
+        var newhref = hre + str;
+
+        window.location = newhref;
+
+
+    });
+
+    $('#custPhone_CountryCode option, #custPhone_CountryCode2 option').each(function() {
+
+        $(this).text($(this).attr('data-code'));
+    });
+
+    var openrequest = $.ajax({
+        type: 'POST',
+        url: ajax_url,
+        success: function(result) {}
+    });
+
+    /*function refresh_quick_quote(){
+    	openrequest.abort();
+    	$('#miniload').show();
+    	$('#quote-wrap').slideUp('slow');
+    	var quote_from = $('#quote-Origin_CountryIso').val();
+    	var quote_to = $('#quote-Destination_CountryIso').val();
+    	var width = $('#quote-width').val();
+    	var height = $('#quote-height').val();
+    	var length = $('#quote-length').val();
+    	
+    	if($('#OneWayJourney').is(':checked')){
+    		
+    		var journey = 'single';
+    	}else{
+    		
+    		var journey = 'return';
+    	}
+    	
+    	
+    	
+    	openrequest = $.post(ajax_url, {'from': quote_from, 'to': quote_to, 'journey': journey, 'action': 'do_quick_quote', 'width': width, 'height': height, 'length': length}).done(function(data){
+    		if(data != ''){$('#quote-wrap').slideDown('slow');}
+    		$('#ajax-show-info').html(data);
+    		$('#miniload').hide();
+    		
+    		
+    	});
+    	
+    	
+    }*/
+
+    var data_5_standard = 0;
+    var data_15_standard = 0;
+    var data_30_standard = 0;
+    var data_5_express = 0;
+    var data_15_express = 0;
+    var data_30_express = 0;
+
+    function refresh_quick_quote() {
+        openrequest.abort();
+        $('#ajax-show-info .btn').hide().attr('href', 'Javascript:void(0);');
+        $('#miniload').show();
+        $('#quote-wrap').slideUp('slow');
+        var quote_from = $('#quote-Origin_CountryIso').val();
+        var quote_to = $('#quote-Destination_CountryIso').val();
+        var width = $('#quote-width').val();
+        var height = $('#quote-height').val();
+        var length = $('#quote-length').val();
+
+        if ($('#OneWayJourney').is(':checked')) {
+
+            var journey = 'single';
+        } else {
+
+            var journey = 'return';
+        }
+
+        var su = $('#spinner-url').val();
+        var spinner = "<img src='" + su + "' />";
+        $('#data-5-express, #data-5-standard, #data-15-express, #data-15-standard, #data-30-express, #data-30-standard').html(spinner);
+        $.when(
+
+            $.post(ajax_url, {
+                'from': quote_from,
+                'to': quote_to,
+                'journey': journey,
+                'action': 'do_quick_quote',
+                'width': width,
+                'height': height,
+                'length': length,
+                'weight': 5
+            }).done(function(data) {
+                if (data != '') {
+                    $('#quote-wrap').slideDown('slow');
+                }
+                var obj = jQuery.parseJSON(data);
+                var currency_symbol = obj.currency_symbol;
+                if (obj.w5kg.hasOwnProperty("standard")) {
+                    data_5_standard = parseFloat(obj.w5kg.standard.amount);
+                    $('#data-5-standard').html(currency_symbol + data_5_standard.toFixed(2));
+                    $('#standard-5-button').attr('href', obj.w5kg.standard.url);
+                } else {
+                    $('.standard-results').slideUp('fast');
+                }
+                data_5_express = parseFloat(obj.w5kg.express.amount);
+
+                $('#data-5-express').html(currency_symbol + data_5_express.toFixed(2));
+                $('#express-5-button').attr('href', obj.w5kg.express.url);
+
+                $('#miniload').hide();
+                $('#ajax-show-info .btn').show();
+
+
+            }),
+
+            $.post(ajax_url, {
+                'from': quote_from,
+                'to': quote_to,
+                'journey': journey,
+                'action': 'do_quick_quote',
+                'width': width,
+                'height': height,
+                'length': length,
+                'weight': 15
+            }).done(function(data) {
+                if (data != '') {
+                    $('#quote-wrap').slideDown('slow');
+                }
+
+                var obj = jQuery.parseJSON(data);
+                var currency_symbol = obj.currency_symbol;
+                if (obj.w15kg.hasOwnProperty("standard")) {
+                    data_15_standard = parseFloat(obj.w15kg.standard.amount);
+                    $('#data-15-standard').html(currency_symbol + data_15_standard.toFixed(2));
+                    $('#standard-15-button').attr('href', obj.w15kg.standard.url);
+                } else {
+                    $('.standard-results').slideUp('fast');
+                }
+                data_15_express = parseFloat(obj.w15kg.express.amount);
+
+                $('#data-15-express').html(currency_symbol + data_15_express.toFixed(2));
+                $('#express-15-button').attr('href', obj.w15kg.express.url);
+                $('#ajax-show-info .btn').show();
+
+            }),
+
+            $.post(ajax_url, {
+                'from': quote_from,
+                'to': quote_to,
+                'journey': journey,
+                'action': 'do_quick_quote',
+                'width': width,
+                'height': height,
+                'length': length,
+                'weight': 30
+            }).done(function(data) {
+                if (data != '') {
+                    $('#quote-wrap').slideDown('slow');
+                }
+
+                var obj = jQuery.parseJSON(data);
+                var currency_symbol = obj.currency_symbol;
+                if (obj.w30kg.hasOwnProperty("standard")) {
+                    data_30_standard = parseFloat(obj.w30kg.standard.amount);
+                    $('#data-30-standard').html(currency_symbol + data_30_standard.toFixed(2));
+                    $('#standard-30-button').attr('href', obj.w30kg.standard.url);
+                } else {
+                    $('.standard-results').slideUp('fast');
+                }
+                data_30_express = parseFloat(obj.w30kg.express.amount);
+
+                $('#data-30-express').html(currency_symbol + data_30_express.toFixed(2));
+                $('#express-30-button').attr('href', obj.w30kg.express.url);
+                $('#ajax-show-info .btn').show();
+
+
+            })
+
+
+
+        ).then(function() {
+
+            // All have been resolved (or rejected), do your thing
+
+        });
+
+
+    }
+
+    $('.page-template-quotepage #Collection_Postcode, .page-template-quotepage #Destination_Postcode').keyup(function() {
+
+        var fp = $('#Collection_Postcode').val();
+        var tp = $('#Destination_Postcode').val();
+        var str = '&fp=' + fp + '&tp=' + tp;
+
+        $('#ajax-show-info .btn').each(function() {
+
+            var thishref = $(this).attr('data-orig');
+            var newhref = thishref + str;
+            $(this).attr('href', newhref);
+        });
+    });
+
+    $('#quote-Origin_CountryIso, #quote-Destination_CountryIso').change(function() {
+
+        refresh_quick_quote();
+
+    });
+
+    $('#OneWayJourney, #ReturnJourney').click(function() {
+
+        refresh_quick_quote();
+
+    });
+
+
+    if ($('body').hasClass('page-template-quotepage') || $('.destinations-sidebar').length) {
+        if ($('#quote-Origin_CountryIso').val() != '' && $('#quote-Destination_CountryIso').val() != '') {
+            refresh_quick_quote();
+        }
+
+    }
+
+    $('#custOrigin_CountryIso').change(function() {
+
+        if ($(this).val() == 'US') {
+            $('#state-list-from').slideDown('fast');
+        } else {
+            $('#state-list-from').slideUp('fast');
+        }
+    });
+
+    $('#custOrigin_CountryIso2').change(function() {
+
+        if ($(this).val() == 'US') {
+            $('#state-list-to').slideDown('fast');
+        } else {
+            $('#state-list-to').slideUp('fast');
+        }
+    });
+
+    $('#service-express').click(function() {
+
+        service_type = 'express';
+    });
+
+    $('#service-standard').click(function() {
+
+        service_type = 'standard';
+    });
+
+    if ($('#service-express').is(':checked')) {
+        service_type = 'express';
+    } else {
+        service_type = 'standard';
+    }
+
+    $('#custOrigin_CountryIso').change(function() {
+
+        f_c = $(this).val();
+        calculate_shipping_zone();
+    });
+
+    $('#custOrigin_CountryIso2').change(function() {
+
+        t_c = $(this).val();
+        calculate_shipping_zone();
+    });
+
+    f_c = $('#custOrigin_CountryIso').val();
+    t_c = $('#custOrigin_CountryIso2').val();
+    calculate_shipping_zone();
+
+    $('#gobacktostep1').click(function() {
+
+        $('#orderStep1, #orderStep2, #orderStep3, #orderStep4').fadeOut('fast');
+        var thestep = 1;
+
+        $('#orderStep' + thestep).fadeIn('slow');
+
+        $('.nav-link').removeClass('active');
+        $('#pill-step-' + thestep).addClass('active');
+    });
+
+    if ($('#customs-contents').val() === 'OTHER') {
+
+        $('#show-customs-other').show();
+    } else {
+
+        $('#show-customs-other').hide();
+    }
+
+    $('#customs-contents').change(function() {
+
+        if ($(this).val() === 'OTHER') {
+
+
+            $('#show-customs-other').show();
+        } else {
+
+            $('#show-customs-other').hide();
+        }
+    });
+
+    if ($('#customs-yes-no').val() === 'yes') {
+
+        $('.customs-info').slideDown('fast');
+
+    } else {
+
+        $('.customs-info').slideUp('fast');
+    }
+
+    $('#customs-yes-no').change(function() {
+
+        if ($(this).val() === 'yes') {
+
+            $('.customs-info').slideDown('fast');
+
+        } else {
+
+            $('.customs-info').slideUp('fast');
+        }
+    });
+
+    $('#quote-width, #quote-height, #quote-length').change(function() {
+
+        refresh_quick_quote();
+    });
+
+    $('#quote-width, #quote-height, #quote-length').keyup(function() {
+
+        refresh_quick_quote();
+    });
+
+    /*$('.page-template-orderpage #addressType').val(5);
+    $('.page-template-orderpage #custName').val('Hilton Grand Vacations');
+    $('.page-template-orderpage #custPhone').val('65656565');
+    $('.page-template-orderpage #custAddress1').val('6924 Grand Vacations Way');
+    $('.page-template-orderpage #custCity').val('ORLANDO');
+    $('.page-template-orderpage #custPostcode').val('32821');
+    $('#state-from').val('FL');
+	
+    $('.page-template-orderpage #addressType2').val(1);
+    $('.page-template-orderpage #custName2').val('Andy Lethaby');
+    $('.page-template-orderpage #custPhone2').val('65656565');
+    $('.page-template-orderpage #custAddress1_2').val('78 Cornwall Road');
+    $('.page-template-orderpage #custCity2').val('HARROGATE');
+    $('.page-template-orderpage #custPostcode2').val('HG1 2NE');
+	
+	
+    */
+
+
+    function calculate_shopping_price() {
+
+        var shopping_price = $('.shop-packs').find(':selected').data('price');
+
+
+
+        var ppp = parseFloat($('#price-per-pack').val());
+
+        var number_of_packs = $('.pack-numbers').val();
+
+        if (parseFloat(number_of_packs) > 0) {
+
+            var pack_price = ppp * number_of_packs;
+
+            var together_price = parseFloat(shopping_price) + pack_price;
+
+            var final_price = "(£" + together_price.toFixed(2) + ")";
+
+
+        } else {
+
+            var final_price = "(£" + shopping_price.toFixed(2) + ")";
+        }
+
+        $('.shopping-buy-now span').html(final_price);
+
+    }
+
+    $('.shop-packs, .pack-numbers').change(function() {
+
+        calculate_shopping_price();
+
+    });
+
+    $('.pack-numbers').keyup(function() {
+
+        calculate_shopping_price();
+    });
+
+
+    $('.shopping-buy-now').click(function() {
+
+        var shopping_price = $('.shop-packs').find(':selected').data('price');
+        var selected_name = $('.shop-packs').find(':selected').data('index');
+        var number_of_packages = $('.pack-numbers').val();
+
+        window.location = base_url + '/buy-shopping?package=' + selected_name + '&extra_packages=' + number_of_packages;
+
+    });
+
+    $('#do-shopping-login').click(function() {
+
+        var email = $('#login-email').val();
+        var password = $('#login-password').val();
+
+        if (email !== '' && password !== '') {
+
+            $.post(ajax_url, {
+                'ems_cmd': 'ems_login',
+                'email_address': email,
+                'password': password
+            }).done(function(data) {
+
+                var res = jQuery.parseJSON(data);
+
+                if (res.status === 'error') {
+
+                    $('#login-msg').html(res.reason).fadeIn('slow');
+
+                } else {
+
+                    $('#shopping-buy').slideDown('slow');
+                    $('#shopping-register-login').hide();
+                    $('#shopping-user-id').val(res.user_id);
+                }
+
+
+            });
+
+        } else {
+
+            alert('Please enter a username and password');
+        }
+
+    });
+
+
+    $('#do-shopping-register').click(function() {
+
+
+        if ($('#user-password').val() != $('#user-password-confirm').val()) {
+
+            alert('The passwords you entered do not match');
+        } else {
+
+
+            $.post(ajax_url, {
+                'ems_cmd': 'ems_register',
+                'first_name': $('#user-first-name').val(),
+                'last_name': $('#user-last-name').val(),
+                'email_address': $('#user-email').val(),
+                'password': $('#user-password').val()
+            }).done(function(data) {
+
+                var res = jQuery.parseJSON(data);
+
+                if (res.status === 'error') {
+
+                    $('#register-msg').html(res.reason).fadeIn('slow');
+
+                } else {
+
+                    ems_user_id = res.user_id;
+
+                    $('#shopping-user-id').val(ems_user_id);
+                    $('#shopping-buy').slideDown('slow');
+                    $('#shopping-register-login').hide();
+                }
+
+
+            });
+
+        }
+
+
+    });
+
+    $('#pay-with-worldpay').click(function() {
+        $.post(ajax_url, {
+            'ems_cmd': 'ems_buy_shopping',
+            'user_id': $('#shopping-user-id').val(),
+            'collection_address': collection_address,
+            'delivery_address': delivery_address,
+            'package_name': $('#package-name').val(),
+            'package_index': $('#package-index').val(),
+            'package_amount': $('#package-amount').val(),
+            'ems_session': $('#ems-session').val(),
+            'extra_packages': $('#extra-packages').val()
+        }).done(function(data) {
+            var res = jQuery.parseJSON(data);
+            if (res.status === 'SUCCESS') {
+                $('#shopping-worldpay').submit();
+            }
+        });
+    });
+});
